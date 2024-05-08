@@ -1,0 +1,142 @@
+---
+title: "42111 Homework 4"
+author: "Matthew DeSantis"
+date: "2023-03-02"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(hmcpkg)
+library(BSDA)
+library(pwr)
+set.seed(488102)
+```
+
+# 1
+
+## (a)
+![Work for 1a](1.jpg)
+
+## (b)
+```{r 1b}
+x = c(-1.94, 0.59, -5.98, -0.08, -0.77)
+theta=seq(-6,6,.001);lfs<-c()
+for(th in theta){lfs=c(lfs,sum(log((x-th)^2+1)))}
+plot(lfs~theta)
+theta[which.min(lfs)]
+```
+
+\newpage
+
+# 2
+```{r 2}
+comp2 = function(k = 1000, n = 30, l = 20, hist = TRUE){
+mean = c()
+variance = c()
+intervals = matrix(ncol = 2, nrow = 0)
+intervals2 = matrix(ncol = 2, nrow = 0)
+for (x in 1:k) {
+  ran = rpois(n,l)
+  
+  upper = mean(ran) + 1.96*sd(ran)/sqrt(n)
+  lower = mean(ran) - 1.96*sd(ran)/sqrt(n)
+  
+  upper2 = mean(ran) + 1.96*sqrt(mean(ran))/sqrt(n)
+  lower2 = mean(ran) - 1.96*sqrt(mean(ran))/sqrt(n)
+  
+  intervals = rbind(intervals, c(lower, upper))
+  intervals2 = rbind(intervals2, c(lower2, upper2))
+  
+  mean = c(mean, mean(ran))
+  variance = c(variance, var(ran))
+}
+msemean = (mean(mean)-l)^2+var(mean)
+msevar = (mean(variance)-l)^2+var(variance)
+
+if (hist){
+  hist(variance, col = 'blue', breaks = 15, main = 'Histograms of mean and variance')
+  hist(mean, col = 'red', add = TRUE, breaks = 15)
+  legend('topright', c('mean','variance'), fill = c('red', 'blue'))
+}
+
+return (list("msemean" = msemean, "msevar" = msevar, "mean_data" = mean, "var_data" = variance, "intervals" = intervals, "intervals2" = intervals2))
+}
+```
+
+## (a)
+```{r 2a}
+set.seed(488102)
+a = comp2()
+```
+Although both histograms have roughly the same center, the histogram for variance has a drastically greater spread.
+
+## (b)
+```{r 2b}
+
+mean(a$mean_data)
+var(a$mean_data)
+(mean(a$mean_data)-20)^2+var(a$mean_data)
+```
+
+## (c)
+```{r 2c}
+(mean(a$var_data)-20)^2+var(a$var_data)
+```
+It is much higher than the MSE for mean.
+
+## (d)
+Sample mean appears to be a much better estimator, because it is unbiased and has a much smaller MSE
+
+## (e)
+```{r 2e}
+for (x in c(5,10,30,50,100)){
+  e = comp2(l = x)
+  print(c(e$msemean, e$msevar))
+}
+```
+While sample mean is always a better estimator, it appears that the two grow closer in precision when lambda gets smaller.
+
+\newpage
+
+# 3
+
+## (a)
+```{r 3a}
+head(a$intervals, 5)
+sum(a$intervals[,1]<20 & a$intervals[,2]>20)
+```
+Exactly 95% of them! Wow!
+
+
+## (b)
+```{r 3b}
+head(a$intervals2, 5)
+sum(a$intervals2[,1]<20 & a$intervals2[,2]>20)
+```
+Slightly more than 95% of them.
+
+## (c)
+```{r 3c}
+plot(a$intervals[,1], a$intervals[,2], col = 'black')
+points(a$intervals2[,1], a$intervals2[,2], col = 'blue')
+abline(h = 20)
+abline(v = 20)
+```
+The top left quadrant of the graph is the section which contains intervals which contain the true value.
+
+## (d)
+based on the graph, I would choose the confidence intervals from part (b), because they have a much smaller spread.
+
+## (e)
+```{r 3e}
+for (x in c(5,10,30,50,100)){
+  e = comp2(l = x, hist = FALSE)
+  print(c((sum(e$intervals[,1]<x & e$intervals[,2]>x)), sum(e$intervals2[,1]<x & e$intervals2[,2]>x)))
+  plot(e$intervals[,1], e$intervals[,2], col = 'black', main = paste("lambda = ", as.character(x)))
+  points(e$intervals2[,1], e$intervals2[,2], col = 'blue')
+  abline(h = x)
+  abline(v = x)
+}
+```
+The result does not change with different values of lambda. Using the mean to estimate the standard deviation always results in better intervals.

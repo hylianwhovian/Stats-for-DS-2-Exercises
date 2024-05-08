@@ -1,0 +1,108 @@
+---
+title: "4211 Homework 5"
+author: "Matthew DeSantis"
+date: "2023-03-09"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(hmcpkg)
+library(BSDA)
+library(pwr)
+library(haven)
+library(faraway)
+set.seed(488102)
+setwd("C:/Users/Hyrul/Desktop/School/6 Semester/Stats for DS 2/Homework/HW5")
+```
+
+# 1
+
+## (a)
+```{r 1a}
+x = c(19,15,76,23,24,66,27,12,25,7,6,16,51,26,39)
+hist(x)
+abline(v = 50, col = 'red')
+```
+## (b)
+```{r 1b}
+teststat = (2/50)*sum(x)
+qchisq(0.95, df = 30) #upper
+qchisq(0.05, df = 30) #lower
+```
+At the 0.10 level of confidence, there is sufficient evidence to reject the claim that theta = 50.
+
+\newpage
+# 2
+```{r}
+power2 = function(theta1){
+  a = 0.05
+  n = 10
+  theta0 = 1
+  thing = theta0/theta1  
+  upper = thing*qchisq(1-a/2, df = 2*n)
+  lower = thing*qchisq(a/2, df = 2*n)
+  
+  power = 1 - (pchisq(upper, df = 20)-pchisq(lower, df = 20))
+  
+  return(power)
+}
+
+xp = seq(from = 0, to = 5, by = 0.05)
+plot(xp, power2(xp))
+```
+
+\newpage
+# 3
+
+## (a)
+(sqrt(n/xbar)*(xbar-theta0))^2
+
+## (b)
+```{r 3b}
+poiswald = function(x, theta0){
+  n = length(x)
+  u = mean(x)
+  return((sqrt(n/u)*(u-theta0))^2)
+}
+```
+
+## (c)
+```{r 3c}
+x = c(27,13,21,24,22,14,17,26,14,22,21,24,19,25,15,25,23,16,20,19)
+(stat = poiswald(x, 23))
+(1 - pchisq(stat, df = 1))*2
+```
+
+\newpage
+# 4
+```{r 4}
+salmon <- read.csv("C:/Users/Hyrul/Desktop/School/6 Semester/Stats for DS 2/Homework/HW5/salmon.dat", sep="")
+salmon$R = 1/salmon$recruits
+salmon$S = 1/salmon$spawners
+lm4 = lm(R~S, data = salmon)
+summary(lm4)
+```
+At the 5% confidence level (but also practically any confidence level, since the pvalues are so small), both beta1 and beta0 are positive.
+
+\newpage
+# 5
+
+## (a)
+```{r 5a}
+data(sat, package="faraway")
+afit = lm(total~ratio+salary+expend, data = sat)
+summary(afit)
+```
+From the table, only the intercept is a significant term. Ratio has a positive correlation, salary has a negative, and expend has a positive, though none are significant.
+
+## (b)
+```{r 5b}
+sat$catratio=(cut(sat$ratio,breaks=c(13,16,18,25)))
+bfit = lm(total~catratio+salary+expend, data = sat)
+summary(bfit)
+```
+Here, we treat small ratios (13-16) as the base group. Performing the regression, none of the predictors have significant pvalues, and they are all negative.
+
+## (c)
+It changes slightly, in that expend is now negative rather than positive, but it doesn't matter much in practice since they are both insignificant models.

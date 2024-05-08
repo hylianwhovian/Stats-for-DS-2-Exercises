@@ -1,0 +1,163 @@
+---
+title: "4211 Homework 7"
+author: "Matthew DeSantis"
+date: "2023-03-30"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(faraway)
+library(ggplot2)
+library(gridExtra)
+```
+
+# 1 (3.1)
+
+## (a)
+
+```{r 1a}
+tob = ggplot(esoph,aes(y=(ncases/(ncases+ncontrols)), x=tobgp, size=sqrt((ncases+ncontrols)))) + geom_point()
+alc = ggplot(esoph,aes(y=(ncases/(ncases+ncontrols)), x=alcgp, size=sqrt((ncases+ncontrols)))) + geom_point()
+age = ggplot(esoph,aes(y=(ncases/(ncases+ncontrols)), x=agegp, size=sqrt((ncases+ncontrols)))) + geom_point()
+
+grid.arrange(tob, alc, age, ncol=1)
+```
+The plots seem to show that higher alcohol usage, tobacco usage, and age seem to increase the chance of getting cancer. This relationship seems to be very strong for alcohol usage, and weaker for age.
+
+## (b)
+
+```{r 1b}
+mod1 = glm(cbind(ncases, ncontrols) ~ agegp*alcgp*tobgp, family = binomial, data = esoph)
+mod2 = step(mod1, trace = FALSE)
+summary(mod2)
+```
+
+## (c)
+
+```{r 1c}
+mod3 = glm(cbind(ncases, ncontrols) ~ unclass(agegp)*unclass(alcgp)*unclass(tobgp), family = binomial, data = esoph)
+mod4 = step(mod3, trace = FALSE)
+summary(mod4)
+```
+
+## (d)
+
+```{r 1d}
+mod5 = glm(cbind(ncases, ncontrols) ~ unclass(agegp)+unclass(alcgp)+unclass(tobgp)+I(unclass(agegp)^2), family = binomial, data = esoph)
+summary(mod5)
+```
+
+
+## (e)
+
+```{r 1e}
+drop1(mod5)
+```
+This model appears to be the best model; dropping any of its parameters would result in a higher AIC.
+
+## (f)
+
+```{r 1f}
+halfnorm(residuals(mod5))
+```
+The model doesn't appear to have outliers.
+
+## (g)
+
+```{r 1g}
+exp(mod5$coefficients[3])
+```
+The odds go up by a factor of the listed number.
+
+## (h)
+
+```{r 1h}
+exp(confint(mod5)[3])
+exp(confint(mod5)[8])
+```
+
+
+\newpage
+
+# 2 (3.2)
+
+## (a)
+
+```{r 2a}
+data("turtle")
+plot(x=turtle$temp, y=(turtle$male/(turtle$male+turtle$female)))
+```
+There seems to be a positive relationship between the temperature and the proportion of males born.
+
+## (b)
+
+```{r 2b}
+tmod1 = glm(cbind(male, female) ~ temp, family = binomial, data = turtle)
+summary(tmod1)
+pchisq(24.942, 13, lower.tail = FALSE)
+```
+It does not appear to be a good fit.
+
+## (c)
+
+No, most of the values are not zero.
+
+## (d)
+
+```{r 2d}
+halfnorm(residuals(tmod1))
+```
+There do not appear to be any outliers.
+
+## (e)
+
+```{r 2e}
+elogits <- with(turtle,log((male+0.5)/(female+0.5)))
+plot(turtle$temp,elogits)
+```
+The relationship doesn't appear to be linear, so this indicates a lack of fit.
+
+## (f)
+
+```{r 2f}
+tmod2 = glm(cbind(male, female) ~ temp + I(temp^2), family = binomial, data = turtle)
+summary(tmod2)
+```
+It is significant. 
+
+## (g)
+
+```{r 2g}
+vars = data.frame(temp = c(), expected = c(), observed = c())
+
+for(x in c(27.2,27.7,28.3,28.4,29.9)){
+  male = sum(turtle$male[turtle$temp==x])
+  female = sum(turtle$female[turtle$temp==x])
+  total = male+female
+  expected = (male/total)*(female/total)/3
+  observed = var(c(rep(1,male), rep(0,female)))
+  vars = rbind(vars,c(x,expected,observed))
+  colnames(vars) = c("temp","expected variance", "observed variance")
+  #vars$temp = append(vars$temp, x)
+  #vars$expected = append(vars$expected, expected)
+  #vars$observed = append(vars$observed, observed)
+}
+vars
+```
+The expected variance would be nqp, which would be (male/total)x(female/total)/3. I calculate the observed variance with var(). As can be seen, there appears to be much more observed variance at every level. This indicates overdispersion. 
+## (h)
+
+```{r 2h}
+turt2 = data.frame()
+for(x in c(27.2,27.7,28.3,28.4,29.9)){
+  male = sum(turtle$male[turtle$temp==x])
+  female = sum(turtle$female[turtle$temp==x])
+  turt2 = rbind(turt2,c(x,male,female))
+  colnames(turt2) = c("temp","male", "female")
+}
+tmod3 = glm(cbind(male, female) ~ temp, family = binomial, data = turt2)
+summary(tmod3)
+
+```
+This model seems to perform better, with a lower AIC.

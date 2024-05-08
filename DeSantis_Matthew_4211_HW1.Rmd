@@ -1,0 +1,202 @@
+---
+title: "4211 Homework 1"
+author: "Matthew DeSantis"
+date: "2023-02-05"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(hmcpkg)
+set.seed(488103)
+```
+
+# 1
+
+```{r 1}
+data(bb)
+#x = bb$weight
+x = c(160,175,180,185,185,185,190,190,195,195,195,200,200,200,200,205,205,210,210,218,219,220,222,225,225,232)
+```
+## (a)
+```{r 1a}
+hist(x,pr=T)
+lines(density(x))
+```
+The normal distribution looks like it may be fairly accurate in this case.
+
+## (b)
+```{r 1b}
+muhat = mean(x)
+varhat = mean((x-muhat)**2)
+sdhat = sqrt(varhat)
+variationhat = muhat/sdhat
+hist(x,pr=T)
+lines(density(x), col = "blue")
+lines(density(rnorm(1000000, mean = muhat, sd = sdhat)), col = "red")
+legend('topright', lty = 1, col=c("blue", "red"), legend = c("smoothed fit", "normal approximation"))
+muhat
+varhat
+sdhat
+variationhat
+```
+## (c)
+```{r 1c}
+phat = sum(as.integer(x>215))/length(x)
+phat
+```
+## (d)
+```{r 1d}
+1 - pnorm(215, mean = muhat, sd = sdhat)
+```
+
+\newpage
+
+# 2 
+```{r 2}
+getcis <- function(mat,cc=.90){
+numb <- length(mat[,1]); ci <- c()
+for(j in 1:numb)
+{ci<-rbind(ci,t.test(mat[j,],conf.level=cc)$conf.int)}
+return(as.data.frame(ci))}
+
+getcisz = function(mat, cc=.90, sd = TRUE){
+  numb = length(mat[,1])
+  ci = c()
+  
+  if(sd){
+    for (j in 1:numb){
+    alpha = 1-cc
+    xbar = mean(mat[j,])
+    upper = xbar + sd*qnorm(alpha/2)/sqrt(length(mat[j,]))
+    lower = xbar - sd*qnorm(alpha/2)/sqrt(length(mat[j,]))
+    ci = rbind(ci, c(upper, lower))
+  }
+  return(as.data.frame(ci))
+  }
+  
+   for (j in 1:numb){
+    alpha = 1-cc
+    xbar = mean(mat[j,])
+    sd = sd(mat[j,])
+    upper = xbar + sd*qnorm(alpha/2)/sqrt(length(mat[j,]))
+    lower = xbar - sd*qnorm(alpha/2)/sqrt(length(mat[j,]))
+    ci = rbind(ci, c(upper, lower))
+  }
+  return(as.data.frame(ci))
+  
+}
+
+
+```
+
+## (a)
+```{r 2a}
+n = 9
+m = 1000
+mat = matrix(rnorm(m*n, mean = 1, sd = 1), ncol=n)
+CIn = getcisz(mat, cc = 0.95)
+mean(CIn$V2-CIn$V1)
+```
+## (b)
+```{r 2b}
+CIt = getcis(mat, cc = 0.95)
+mean(CIt$V2-CIt$V1)
+```
+## (c)
+As expected, when we use the t confidence interval rather than the z one, our confidence intervals are longer.
+
+\newpage
+
+# 3 
+
+## (a)
+```{r 3a}
+CIn$Successful = CIn$V1 < 1 & CIn$V2 > 1
+mean(CIn$Successful)
+CIt$Successful = CIt$V1 < 1 & CIt$V2 > 1
+mean(CIt$Successful)
+```
+Both values are very close to the nominal coverage probability.
+
+## (b)
+```{r 3b}
+CIn2 = getcisz(mat, cc = 0.95, sd = FALSE)
+CIn2$Successful = CIn2$V1 < 1 & CIn2$V2 > 1
+mean(CIn2$Successful)
+```
+The coverage probability no longer conforms to the nominal coverage probability. It performed worse than both of the other test types.
+
+\newpage
+
+# 4 
+```{r 4}
+getcib = function(x, cc=0.95, type = "z", n = 30){
+  ci = c()
+  alpha = 1-cc
+  
+  if(type == "z"){
+    for (j in 1:length(x)){
+      phat = x[j]/n
+      sd = sqrt(phat*(1-phat))
+      upper = phat + sd*qnorm(alpha/2)/sqrt(n)
+      lower = phat - sd*qnorm(alpha/2)/sqrt(n)
+      ci = rbind(ci, c(upper, lower))
+    }
+    return(as.data.frame(ci))
+  }
+  
+  if(type == "t"){
+    df = n-1
+    for (j in 1:length(x)){
+      phat = x[j]/n
+      sd = sqrt(phat*(1-phat))
+      upper = phat + sd*qt(alpha/2, df = df)/sqrt(n)
+      lower = phat - sd*qt(alpha/2, df = df)/sqrt(n)
+      ci = rbind(ci, c(upper, lower))
+    }
+    return(as.data.frame(ci))
+  }
+  
+}
+```
+
+## (a)
+```{r 4a}
+data = rbinom(1000, size=30, p=0.5)
+CIbn = getcib(data)
+```
+
+## (b)
+```{r 4b}
+CIbt = getcib(data, type = "t")
+```
+
+## (c)
+```{r 4c}
+CIbn.length = mean(CIbn$V2-CIbn$V1)
+CIbt.length = mean(CIbt$V2-CIbt$V1)
+
+CIbn$Successful = CIbn$V1 < 0.5 & CIbn$V2 > 0.5
+CIbn.coveragep = mean(CIbn$Successful)
+
+CIbt$Successful = CIbt$V1 < 0.5 & CIbt$V2 > 0.5
+CIbt.coveragep = mean(CIbt$Successful)
+
+CIbn.length
+CIbn.coveragep
+CIbt.length
+CIbt.coveragep
+```
+They have the same coverage probability (0.95), but the t interval has a slightly larger length.
+
+\newpage
+
+# 5
+n = 1/sqrt(1+1/n)
+```{r 5}
+k = qt(0.9, df=7)*sqrt(1+1/8)
+k
+```
+
+\newpage

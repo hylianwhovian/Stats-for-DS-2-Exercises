@@ -1,0 +1,206 @@
+---
+title: "4211 Homework 3"
+author: "Matthew DeSantis"
+date: "2023-02-15"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(hmcpkg)
+library(BSDA)
+library(pwr)
+set.seed(488102)
+```
+
+# 1
+
+## (a)
+```{r 1a}
+n = (20+40+16+18+6)
+lambdahat = (40+2*16+3*18+4*6)/n
+data = c(20,40,16,18,6)
+teststat = 0
+for (x in 0:4){
+  expected = dpois(x, lambdahat)*n
+  observed = data[x+1]
+  sqdif = ((observed-expected)**2)/expected
+  teststat= teststat+sqdif
+} 
+teststat
+```
+
+## (b)
+```{r 1b}
+(df = 5-1-1)
+```
+
+## (c)
+```{r 1c}
+1 - pchisq(teststat, df)
+```
+We do not reject the Poisson model at the alpha=0.05 significance level (but just barely).
+\newpage
+
+# 2
+
+## (a)
+```{r 2a}
+data("crimealk")
+(test2 = chisq.test(crimealk))
+```
+Assuming that we are using an alpha=0.05 significance level, we reject the null hypothesis that type of crime and alcoholic status are independent, because the pvalue is (much) lower than 0.05.
+
+## (b)
+```{r 2b}
+test2$residuals
+```
+From the output, it seems clear that fraud has the most information regarding independence, as the residuals in the fraud row are much larger than the other residuals.
+
+## (c)
+```{r 2c}
+1 - pchisq(test2$residuals[6]**2+test2$residuals[12]**2, 1)
+```
+Performing a test using only the data in the fraud row, we obtain an even smaller pvalue than before, confirming our suspicions from (b).
+
+\newpage
+
+# 3
+
+## (a)
+```{r 3a}
+covid = matrix(c(21338, 21492, 162, 8), ncol = 2)
+colnames(covid) = c("no covid", "covid"); rownames(covid) = c("no vaccine", "vaccine")
+covid
+```
+
+## (b)
+```{r 3b}
+expectedcaserate = 170/43000
+expectedcases = expectedcaserate*21500
+expectedsafes = 21500 - expectedcases
+(teststat3 = 
+    ((21338-expectedsafes)**2)/expectedsafes + 
+    ((21492-expectedsafes)**2)/expectedsafes +
+    ((162-expectedcases)**2)/expectedcases +
+    ((8-expectedcases)**2)/expectedcases
+)
+1 - pchisq(teststat3, 1)
+```
+Under the null hypothesis, the test statistic has a Chi-square distribution with 1 degree of freedom.
+
+## (c)
+```{r 3c}
+phat1 = 8/21500
+phat2 = 162/21500
+var1 = phat1*(1-phat1)
+var2 = phat2*(1-phat2)
+n = 21500
+(teststat3c = (phat1-phat2)/sqrt((var1/n)+(var2/n)))
+pnorm(teststat3c)*2
+```
+The pvalue here is much lower than the pvalue from the Chi-square test, which is expected, as z tests have much greater power than Pearson Chi-square tests.
+
+## (d)
+```{r 3d}
+chisq.test(covid, correct = FALSE)
+prop.test(x = c(8, 162), n = c(21500,21500), correct = FALSE)
+```
+
+\newpage
+
+# 4
+
+## (a)
+```{r 4a}
+ca = c(8.27,8.20,8.25,8.14,9.00,8.10,7.20,8.32,7.70)
+na = c(8.50,9.48,8.65,8.16,8.83,7.76,8.63)
+```
+I will use a Mann-Whitney test here, because the sample sizes are very small and n!=m.
+
+## (b)
+```{r 4b}
+(stat4 = sum(rank(c(na,ca))[1:9])-(9*(10)/2))
+```
+
+## (c)
+```{r 4c}
+1 - pwilcox(stat4,9,7,lower.tail = T)
+```
+At the alpha = 0.05 level of significance, there is not significant evidence to say that Native Americans have higher msce than Caucasians.
+
+\newpage
+
+# 5
+```{r 5}
+testcompare = function(ntrials = 1000, n1 = 100, n2 = 200, mean2 = 0, sd2 = 1, exp = FALSE){
+zfails = 0
+tfails = 0
+wfails = 0
+for(x in 1:ntrials){
+  if (exp){
+    x1 = rexp(n1)
+    x2 = rexp(n2)
+  }
+  else {
+    x1 = rnorm(n1)
+    x2 = rnorm(n2, mean = mean2, sd = sd2)
+  }
+  
+  
+  zstat = (mean(x1)-mean(x2))/sqrt(var(x1)/n1+var(x2)/n2)
+  if (zstat < qnorm(0.025) || zstat > qnorm(0.975)){
+    zfails = zfails + 1
+  }
+  
+classict = t.test(x1,x2,var.equal = TRUE)
+if (classict$p.value < 0.05){
+  tfails = tfails + 1
+}
+
+welcht = t.test(x1,x2)
+if (welcht$p.value < 0.05){
+  wfails = wfails + 1
+}
+
+}
+results = matrix(c(zfails/ntrials,tfails/ntrials,wfails/ntrials), ncol = 3)
+colnames(results) = c("z test | ", "classical t test | ", "Satterthwaite-Welch t test |")
+rownames(results) = "rejection rate"
+return(results)
+
+}
+```
+
+## (a)
+```{r 5a}
+testcompare()
+```
+
+## (b)
+```{r 5b}
+testcompare(sd2 = sqrt(2))
+```
+
+## (c)
+```{r 5c}
+testcompare(mean2 = 0.3)
+```
+
+## (d)
+```{r 5d}
+testcompare(mean2 = 0.3, sd2 = sqrt(2))
+```
+
+## (e)
+```{r 5e}
+testcompare(n1 = 5, n2 = 10)
+testcompare(n1 = 5, n2 = 10, sd2 = sqrt(2))
+```
+The z test has a rejection rate above 5% each time.
+
+## (f)
+```{r 5f}
+testcompare(n1 = 5, n2 = 10, exp = TRUE)
+```
+Either of the t tests are better here, because the sample size is small and the data is not normal.

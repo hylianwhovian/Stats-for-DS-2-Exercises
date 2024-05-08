@@ -1,0 +1,183 @@
+---
+title: "4211 Homework 10"
+author: "Matthew DeSantis"
+date: "2023-04-28"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(boot)
+library(bootstrap)
+library(ggplot2)
+setwd("C:/Users/Hyrul/Desktop/School/6 Semester/Stats for DS 2/Homework/HW5")
+```
+
+# 1
+
+## (a)
+```{r 1a}
+x = data.frame(
+  msce = c(8.27,8.20,8.25,8.14,9.00,8.10,7.20,8.32,7.70,8.50,9.48,8.65,8.16,8.83,7.76,8.63),
+  eth = c(rep(0,9), rep(1,7))
+)
+
+
+midtest = function(x){
+  xstar = sample(x, replace = TRUE)
+  return(median(xstar))
+}
+
+set.seed(488103)
+bootedc = replicate(10000, midtest(x[x$eth==0,]$msce))
+bootedn = replicate(10000, midtest(x[x$eth==1,]$msce))
+
+x2 = data.frame(
+  median = c(bootedc, bootedn),
+  eth = c(rep(0,10000),rep(1,10000))
+)
+
+ggplot(x2, aes(x = median, fill = factor(eth))) + geom_histogram(bins = 10, position = "dodge")
+```
+
+## (b)
+```{r 1b}
+cauc = c(8.27,8.20,8.25,8.14,9.00,8.10,7.20,8.32,7.70)
+nat = c(8.50,9.48,8.65,8.16,8.83,7.76,8.63)
+
+bootmid = function(x, id){
+  xstar = x[id]
+  return(median(xstar))
+}
+
+boot.ci(boot(cauc, bootmid, 10000))
+boot.ci(boot(nat, bootmid, 10000))
+```
+
+
+\newpage
+
+# 2
+
+## (a)
+```{r 2a}
+salmon <- read.csv("C:/Users/Hyrul/Desktop/School/6 Semester/Stats for DS 2/Homework/HW5/salmon.dat", sep="")
+salmon$R = 1/salmon$recruits
+salmon$S = 1/salmon$spawners
+mod1 = lm(R~S, data = salmon)
+beta0 = as.double(mod1$coefficients[1])
+beta1 = as.double(mod1$coefficients[2])
+(R = as.double((1 - mod1$coefficients[2])/mod1$coefficients[1]))
+
+samtest = function(x, para = FALSE){
+
+  ids = sample(1:nrow(x), replace = TRUE)
+    
+  if(para){
+    ers = mod1$residuals[ids]
+    x$Rstar = beta0 + beta1*x$S + ers
+    bootmod = lm(Rstar~S, data = x)
+  }
+  
+  else{
+    xstar = x[ids,]
+    bootmod = lm(R~S, data = xstar)
+  }
+  return(as.double((1 - bootmod$coefficients[2])/bootmod$coefficients[1]))
+}
+
+set.seed(488103)
+nonparaboot = replicate(10000, samtest(salmon))
+nonparaboot = na.omit(nonparaboot)
+```
+
+```{r 2a.2}
+sd(nonparaboot)
+quantile(nonparaboot, c(0.025, 0.975))
+```
+
+
+## (b)
+```{r 2b}
+set.seed(488103)
+paraboot = replicate(10000, samtest(salmon, para = TRUE))
+paraboot = na.omit(paraboot)
+```
+
+```{r 2b.2}
+sd(paraboot)
+quantile(paraboot, c(0.025, 0.975))
+```
+
+## (c)
+```{r 2c}
+par(mfrow=c(1,2))
+hist(nonparaboot)
+hist(paraboot)
+```
+There doesn't appear to be much difference between the parametric and nonparametric approaches in this case.
+
+\newpage
+
+# 3
+
+## (a)
+```{r 3a}
+data("scor")
+PerformanceAnalytics::chart.Correlation(scor)
+```
+
+## (b)
+```{r 3b}
+cortest = function(x){
+  ids = sample(1:nrow(x), replace = TRUE)
+  xstar = x[ids,]
+  return(c(cor(xstar$mec,xstar$vec), cor(xstar$alg,xstar$ana), cor(xstar$alg,xstar$sta), cor(xstar$ana,xstar$sta)))
+}
+
+set.seed(488103)
+bootcor = replicate(10000, cortest(scor))
+sd(bootcor[seq(1, 39997, 4)])
+sd(bootcor[seq(2, 39998, 4)])
+sd(bootcor[seq(3, 39999, 4)])
+sd(bootcor[seq(4, 40000, 4)])
+```
+
+## (c)
+```{r 3c}
+par(mfrow=c(2,2))
+hist(bootcor[seq(1, 39997, 4)])
+hist(bootcor[seq(2, 39998, 4)])
+hist(bootcor[seq(3, 39999, 4)])
+hist(bootcor[seq(4, 40000, 4)])
+sd(bootcor[seq(1, 39997, 4)])
+sd(bootcor[seq(2, 39998, 4)])
+sd(bootcor[seq(3, 39999, 4)])
+sd(bootcor[seq(4, 40000, 4)])
+quantile(bootcor[seq(1, 39997, 4)], c(0.025, 0.975))
+quantile(bootcor[seq(2, 39998, 4)], c(0.025, 0.975))
+quantile(bootcor[seq(3, 39999, 4)], c(0.025, 0.975))
+quantile(bootcor[seq(4, 40000, 4)], c(0.025, 0.975))
+```
+As seen by the CIs, all are significant at the confidence level alpha = 0.05
+
+
+\newpage
+
+# 4
+
+## (a)
+```{r 4a}
+thestat = function(x, ids){
+  xstar = x[ids,]
+  vals = eigen(cov(xstar))$values
+  return(vals[1]/(sum(vals)))
+}
+
+boot(scor, thestat, 10000)
+```
+
+## (b)
+```{r 4b}
+boot.ci(boot(scor, thestat, 10000))
+```

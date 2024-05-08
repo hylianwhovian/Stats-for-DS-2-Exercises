@@ -1,0 +1,118 @@
+---
+title: "4211 Homework 2"
+author: "Matthew DeSantis"
+date: "2023-02-09"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(hmcpkg)
+library(BSDA)
+library(pwr)
+set.seed(488103)
+```
+
+# 1
+
+## (a)
+```{r 1a}
+(z = (3500-3400)/(300/sqrt(200)))
+1-pnorm(z)
+```
+Because the sample size is large, the z and t tests are interchangeable here. The large sample size is also required, because the data is not normal. The t test is only a correct approximation if the data is normal.
+
+## (b)
+```{r 1b}
+reject = qnorm(0.95)
+(power = 1-pnorm(reject, mean = z, sd = 1))
+```
+The power can be increased by taking a larger sample, or by using a larger alpha. The power is also larger if the two hypothesis are more drastically different (for example, if the mean weight of the babies in our sample was 7000 instead of 3500, we would have much larger power), but this is not typically something we can control.
+\newpage
+
+# 2
+
+## (a)
+```{r 2a}
+data("aztdoses")
+x = data.frame(mg300 = aztdoses$azt[aztdoses$dose==300], mg600 = aztdoses$azt[aztdoses$dose==600])
+x
+boxplot(x)
+```
+As visible from the graph, the data point 335 is an outlier in the 600 mg group.It appears that the 600 mg group have higher p24 levels on average. 
+
+## (b)
+```{r 2b}
+(z2 = (mean(x$mg600) - mean(x$mg300))/sqrt((var(x$mg600)/10)+(var(x$mg300)/10)))
+1 - pnorm(z2)
+(test = t.test(x$mg600, x$mg300))
+```
+At the 5% significance level, the difference is not significant.
+
+## (c)
+```{r 2c}
+mean(test$conf.int[1:2])
+test$conf.int[1:2]
+```
+
+## (d)
+At the 5% significance level, there is not sufficient evidence to say that patients given 600mg of AZT have different p24 antigen levels than patients given 300mg of AZT.
+
+\newpage
+
+# 3
+
+## (a)
+H0: p<=0.14
+H1: p>0.14
+
+## (b)
+```{r 3b}
+qnorm(0.99)
+```
+The test statistic must be greater than the above value to reject the null hypothesis.
+
+## (c)
+```{r 3c}
+(z3 = ((104/590)-0.14)/((sqrt(0.14*(1-0.14)))/sqrt(590)))
+1 - pnorm(z3)
+```
+At the 1% significance level, there is sufficient evidence to say that the proportion of drivers wearing their seatbelts is greater than 0.14.
+
+\newpage
+
+# 4
+
+## (a)
+```{r 4a}
+ahat = 476/500
+varA = ahat*(1-ahat)
+bhat = 463/500
+varB = bhat*(1-bhat)
+n = 500
+(z4 = (ahat-bhat)/sqrt(varA/n + varB/n))
+(1 - pnorm(z4))*2
+```
+
+## (b)
+```{r 4b}
+prop.test(x = c(476, 463), n = c(500, 500), correct = FALSE)
+prop.test(x = c(952, 926), n = c(1000, 1000), correct = FALSE)
+```
+If the sample size is doubled, our test becomes more powerful and the conclusion changes to reject the null hypothesis.
+\newpage
+
+# 5
+
+## (a)
+```{r 5a}
+z5 = (0.93 - 0.95)/(0.93*(1-0.93)/sqrt(500))
+reject = qnorm(0.05)
+(power = pnorm(reject, mean = z5, sd = 1))
+pwr.p.test(h = ES.h(0.93,0.95), n = 500, sig.level = 0.95, alternative = "less")
+```
+
+## (b)
+```{r 5b}
+pwr.p.test(h = ES.h(0.95,0.93), power = 0.8, sig.level = 0.95, alternative = "less")
+```

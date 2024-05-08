@@ -1,0 +1,273 @@
+---
+title: "4211 Homework 6"
+author: "Matthew DeSantis"
+date: "2023-03-23"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(hmcpkg)
+library(BSDA)
+library(pwr)
+library(haven)
+library(faraway)
+library(tidyr)
+library(ggplot2)
+set.seed(488102)
+```
+
+# 1
+
+## (a)
+
+### i
+```{r 1ai}
+data("wbca")
+plot(Class ~ BNucl, wbca)
+```
+Because "Class" is a binary variable, and BNucl only takes set values, plotting them in a traditional scatterplot does not produce informative results, as seen by the output. It is difficult to determine any trend from this. 
+
+### ii
+```{r 2aii}
+boxplot(BNucl~Class, wbca)
+```
+The boxplots show that the majority of those with malignant tumors have BNucl values from 10-5, although there is some spread, going all the way down to 0. Those with benign tumors have BNucl values much more tightly packed at 0, with a few outliers spanning the range of values. 
+
+### iii
+```{r 1aiii}
+plot(jitter(Class) ~ jitter(BNucl), data = wbca, pch = ".", xlab = "BNucl value", ylab = "Class (Top = benign, Bottom = malignant)")
+```
+This plot has much the same interpretation as the boxplot, with malignant tumors having BNucl values focused at ten, with some spread in all values, and benign tumors being much more tightly packed at 0, with some outliers. This chart is a little more informative, perhaps, as it allows you to see the distribution for each value at a glance. 
+
+### iv
+```{r 1aiv}
+ggplot(wbca, aes(x = BNucl, fill = factor(Class))) + geom_histogram(bins = 10, position = "dodge")
+```
+Once again, the interpretation of the chart is mostly the same as the other two. One advantage of this chart is that it makes it visually obvious that there were more benign tumors than malignant ones.
+
+## (b)
+```{r 2b}
+ggplot(wbca, aes(x=BNucl, y = Thick)) + geom_point(alpha = 0.2, position = position_jitter()) + facet_grid(~ Class)
+ggplot(wbca, aes(x=BNucl, y = Thick, shape = factor(Class), color = factor(Class))) + geom_point(alpha = 0.3, position = position_jitter())
+```
+The first plot is much more readable than the second. As for interpretation, it appears that BNucl is much more useful for predicting Class, though Thick does also appear to have some correlation. 
+
+## (c)
+```{r 1c}
+mod1 = glm(Class ~ Adhes + BNucl + Chrom + Epith + Mitos + NNucl + Thick + UShap + USize, family = binomial, data = wbca)
+summary(mod1)
+diff = mod1$null.deviance - mod1$deviance
+df = mod1$df.null - mod1$df.residual
+1 - pchisq(diff, df)
+```
+We can use the difference between the residual deviance of the full model and the null model to test whether the model with predictors included is better than without. However, this is not a very good test, as it will always favor more predictors, regardless of how correlated they are. 
+
+## (d)
+```{r 1d}
+mod2 = step(mod1)
+summary(mod2)
+```
+
+## (e)
+```{r 1e function}
+dafunc = function(data, mod, cutoff = 0.5, trues = FALSE){
+  mod$diag = ifelse(mod$fitted.values>=cutoff, 1, 0)
+  mod$correct = data == mod$diag
+  
+  if(trues){
+    truepositives = sum((mod$diag == 0) & (mod$correct == TRUE))
+    truenegatives = sum((mod$diag == 1) & (mod$correct == TRUE))
+    return(c(truepositives, truenegatives))
+  }
+  
+  falsepositives = sum((mod$diag == 0) & (mod$correct == FALSE))
+  falsenegatives = sum((mod$diag == 1) & (mod$correct == FALSE))
+  
+  return(c(falsepositives, falsenegatives))
+}
+```
+
+```{r 1e}
+dafunc(wbca$Class, mod2)
+```
+## (f)
+```{r 1f}
+dafunc(wbca$Class, mod2, 0.9)
+```
+
+## (g)
+```{r 1g function}
+dafunk = function(data, mod, cutoff = 0.5){
+  truepos = dafunc(data, mod, cutoff, trues = TRUE)[1]
+  falsepos = dafunc(data, mod, cutoff)[1]
+  size = length(data)
+  ben = sum(data)
+  pos = size-ben
+  tpr = truepos/pos
+  fpr = falsepos/pos
+  return(c(fpr, tpr))
+  
+}
+```
+
+```{r 1g}
+x = seq(0.05,0.95,by = 0.001)
+ROC = lapply(x, dafunk, data = wbca$Class, mod = mod2)
+ROC = as.data.frame(do.call(rbind, ROC))
+plot(ROC, xlab = "False Positive Rate", ylab = "True Positive Rate")
+```
+
+## (h)
+```{r 1h model}
+wbca$test = ((1:nrow(wbca))%%3)==0
+wbcatrain = wbca[wbca$test==FALSE,]
+wbcatest = wbca[wbca$test==TRUE,]
+mod3 = step(glm(Class ~ Adhes + BNucl + Chrom + Epith + Mitos + NNucl + Thick + UShap + USize, family = binomial, data = wbcatrain))
+```
+```{r 1h function1,include=FALSE}
+dafunc2 = function(data, mod, cutoff = 0.5, trues = FALSE){
+  preds = ifelse(predict(mod, newdata = wbcatest, type = "response")>=cutoff, 1, 0)
+  mod$correct = data$Class == preds
+
+  if(trues){
+    truepositives = sum((preds == 0) & (mod$correct == TRUE))
+    truenegatives = sum((preds == 1) & (mod$correct == TRUE))
+    return(c(truepositives, truenegatives))
+  }
+  
+  falsepositives = sum((preds == 0) & (mod$correct == FALSE))
+  falsenegatives = sum((preds == 1) & (mod$correct == FALSE))
+  
+  return(c(falsepositives, falsenegatives))
+}
+```
+
+```{r 1h function2,include=FALSE}
+dafunk2 = function(data, mod, cutoff = 0.5){
+  truepos = dafunc(data, mod, cutoff, trues = TRUE)[1]
+  falsepos = dafunc(data, mod, cutoff)[1]
+  size = length(data)
+  ben = sum(data)
+  pos = size-ben
+  tpr = truepos/pos
+  fpr = falsepos/pos
+  return(c(fpr, tpr))
+}
+```
+
+```{r 1h model metrics}
+dafunc2(wbcatest, mod2)
+dafunc2(wbcatest, mod2,0.9)
+
+x = seq(0.05,0.95,by = 0.001)
+ROC2 = lapply(x, dafunk, data = wbca$Class, mod = mod2)
+ROC2 = as.data.frame(do.call(rbind, ROC2))
+plot(ROC2, xlab = "False Positive Rate", ylab = "True Positive Rate")
+```
+The outcome seems more or less the same. There are fewer errors, but this is because we are testing it with less data.
+\newpage
+
+# 2
+
+## (a)
+```{r 2a}
+data(pima)
+ggplot(pima, aes(x = insulin, fill = factor(test))) + geom_histogram(bins = 30, position = "dodge")
+```
+There appears to be many measurements of 0, which shouldn't be possible for this kind of test.
+
+## (b)
+```{r}
+pima["insulin"][pima["insulin"] == 0] = NA
+ggplot(pima, aes(x = insulin, fill = factor(test))) + geom_histogram(bins = 30, position = "dodge")
+```
+After removing the values, we have a much more reasonable looking graph. It appears that showing signs of diabetes is associated with higher insulin levels.
+
+## (c)
+```{r 2c}
+pima["diastolic"][pima["diastolic"] == 0] = NA
+pima["triceps"][pima["triceps"] == 0] = NA
+pmod1 = glm(test ~ pregnant+glucose+diastolic+triceps+insulin+bmi+diabetes+age, family = binomial, data = pima)
+summary(pmod1)
+```
+374 observations were removed, leaving 394 with which to fit the model. The removed observations were removed because of the presence of NA values in them. 
+
+## (d)
+```{r 2d}
+pima2 = drop_na(pima)
+pmod2 = glm(test ~ pregnant+glucose+diastolic+triceps+insulin+bmi+diabetes+age, family = binomial, data = pima2)
+pmod3 = glm(test ~ pregnant+glucose+diastolic+bmi+diabetes+age, family = binomial, data = pima2)
+
+diff2 = pmod3$deviance - pmod2$deviance
+df2 = pmod3$df.residual - pmod2$df.residual
+1 - pchisq(diff2, df2)
+```
+In order to fit both models with the same dataset, I dropped all rows containing NA values, then fit my models with that dataset. I then compared them with a Chisquare test. Because the result is insignificant, we are justified in dropping insulin and triceps.
+
+## (e)
+```{r 2e}
+pmod4 = step(pmod2)
+summary(pmod4)
+```
+pregnant, glucose, bmi, diabetes, and age are selected. 394 observations.
+
+## (f)
+```{r 2f}
+data(pima)
+pima["insulin"][pima["insulin"] == 0] = NA
+pima["diastolic"][pima["diastolic"] == 0] = NA
+pima["triceps"][pima["triceps"] == 0] = NA
+
+missing = c()
+for(x in 1:nrow(pima)){
+  miss = all(!is.na(pima[x,]))
+  missing = append(missing, miss)
+}
+pima$not_missing = missing
+
+pmod5 = glm(test ~ not_missing, family = binomial, data = pima)
+summary(pmod5)
+
+```
+Missingness is not associated with the test result.
+
+```{r 2f 2}
+pmod5 = glm(test ~ pregnant + glucose + bmi + diabetes + age , family = binomial, data = pima)
+summary(pmod5)
+```
+Because we showed that missingness has no association with the test value, we can add in the data that had missing values.
+
+## (g)
+```{r}
+quantile(pima$bmi)
+beta = 0.079550   
+inte = c(confint(pmod5)[4],confint(pmod5)[10])
+lower = inte[1]
+upper = inte[2]
+
+exp(beta*27.3) - exp(beta*36.6)
+c(exp(lower*27.3) - exp(lower*36.6), exp(upper*27.3) - exp(upper*36.6))
+```
+
+## (h)
+```{r 2h}
+ggplot(pima, aes(x = diastolic, fill = factor(test))) + geom_histogram(position = "dodge")
+t.test(pima[pima$test==0 & !is.na(pima$diastolic),"diastolic"], pima[pima$test==1 & !is.na(pima$diastolic),"diastolic"])
+```
+As seen by the graph and test, women who test positive do have higher diastolic blood pressure. However, the diastolic blood pressure is not significant in the model. Significance in the regression is calculated in the presence of all the other predictors, however. The other predictors predict much better than diastolic does, so diastolic is not significant.
+\newpage
+
+# 3
+
+## (a)
+It is a part of the exponential family.
+
+## (b)
+Because it contains the term exp(y^k), Weibull does not belong to the exponential family.
+
+## (c)
+It is a part of the exponential family. Choose phi = sigma^-2, a() = 1/phi, theta = -1/2mu^2, b() = -sqrt(-2theta), c() = 1/2ln(phi/2piy^3) - phi/2y
+
+## (d)
+Because both the term nln(theta) and ln(n+y-1  y) in the density cannot be separated into terms of n and theta, it doesn't belong to exponential family.

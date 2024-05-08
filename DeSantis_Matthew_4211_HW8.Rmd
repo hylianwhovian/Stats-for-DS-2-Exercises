@@ -1,0 +1,174 @@
+---
+title: "4211 Homework 8"
+author: "Matthew DeSantis"
+date: "2023-04-14"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(faraway)
+```
+
+# 1 (10.1)
+
+## (a)
+
+```{r 1a}
+data("denim")
+plot(denim)
+```
+
+Based off of the plot, it seems that supplier 4 may waste the most on average, and that supplier 1 seems to be the least wasteful. There also appear to be two outlying points, one around 70 in for supplier 2, and one close to 40 for supplier 1.
+
+## (b)
+
+```{r 1b}
+lmod = lm(waste~supplier, data = denim)
+summary(lmod)
+```
+
+According to the fixed effect model, the supplier is not significant.
+
+## (c)
+
+```{r 1c}
+plot(lmod$fitted.values,lmod$residuals)
+```
+
+Here I plot the residuals vs the fitted values. From the graph, there does not appear to be a constant variance, which indicates that the samples are not independent. In cases like this, we should consider fitting the supplier as a random effect.
+
+## (d)
+
+```{r 1d}
+library(lme4)
+rem = lmer(waste~(1|supplier), data = denim)
+summary(rem)
+```
+
+## (e)
+
+```{r 1e}
+nullrem = lm(waste~1, data = denim)
+lrtstat = as.numeric(2*(logLik(rem)-logLik(nullrem)))
+pvalue = pchisq(lrtstat, 1, lower.tail = FALSE)
+data.frame(lrtstat, pvalue)
+```
+
+## (f)
+
+```{r 1f}
+confint(rem, method="boot")
+```
+
+## (g)
+
+```{r 1g}
+denim2 = denim[-c(82, 87),]
+rem2 = lmer(waste~(1|supplier), data = denim2)
+summary(rem2)
+nullrem2 = lm(waste~1, data = denim2)
+lrtstat2 = as.numeric(2*(logLik(rem2)-logLik(nullrem2)))
+pvalue2 = pchisq(lrtstat2, 1, lower.tail = FALSE)
+data.frame(lrtstat2, pvalue2)
+confint(rem2, method="boot")
+```
+
+After removing the outliers, we can now see that the supplier is significant.
+
+## (h)
+
+```{r 1h}
+ranef(rem2)
+```
+
+From the output, we can see that the best supplier is 1, because it has the least waste.
+
+\newpage
+
+# 2 (11.2)
+
+## (a)
+
+```{r 2a}
+data(hprice)
+plot(hprice$time, hprice$narsp)
+abline(lm(hprice$narsp~hprice$time))
+```
+
+The trendline shows (log) prices increasing over time.
+
+## (b)
+
+```{r 2b}
+summary(lm(narsp~ypc+perypc+regtest+rcdum+ajwtr+time, data = hprice))
+```
+
+All factors are significant besides being adjacent to a coastline (ajwtr). The coefficient estimate for time is negative, which is unintuitive because earlier we observed prices to be going up with time.
+
+## (c)
+
+```{r 2c}
+plot(hprice$time, hprice$ypc)
+plot(hprice$time, hprice$perypc)
+```
+
+Per capita income seems to be increasing linearly over time. The percent growth in per capita income, on the other hand, does not display a linear pattern at all. It both increases and decreases. Interestingly, there is a drastic reduction in spread for time periods 8 and 9 when compared to other time periods.
+
+## (d)
+
+```{r 2d}
+hprice$start = NA
+for(x in 1:nrow(hprice)){
+  hprice$start[x] = hprice[(hprice$msa==hprice[x,]$msa) & (hprice$time==1),]$ypc
+}
+
+summary(lm(narsp~start+perypc+regtest+rcdum+ajwtr+time, data = hprice))
+```
+
+There are two main points of interest in this new model. First, perypc is no longer significant. Second, the sign on the coefficient for time has changed from negative to positive, which more aligns with our intuition.
+
+## (e)
+
+```{r 2e}
+remh = lmer(narsp~start+perypc+regtest+rcdum+ajwtr+time+(1|msa), data = hprice)
+summary(remh)
+```
+
+For every year after 1985, the log price of housing (in thousands USD) goes up by 0.0368. This is equivalent to saying that every year, the price of housing is increased by a factor of exp(0.0368) = 1.037486 (about 4% price increase per year).
+
+## (f)
+
+```{r 2f}
+plot(remh)
+qqnorm(residuals(remh))
+rans = ranef(remh)
+qqnorm(rans$msa$`(Intercept)`)
+```
+
+The residual plot indicates a linear effect, and the two QQplots show that both our errors and random effects are roughly normally distributed. All this together is good, and indicates that there are no major issues with our model.
+
+## (g)
+
+```{r 2g}
+remh2 = lmer(narsp~start+perypc+regtest+time+(1|msa), data = hprice)
+anova(remh, remh2)
+```
+
+An insignificant test result indicates that we can, indeed, drop the terms.
+
+## (h)
+
+```{r 2h}
+remh3 = lmer(narsp~start+perypc+regtest+factor(time)+(1|msa), data = hprice)
+anova(remh2, remh3)
+summary(remh3)
+times = c(0.03762, 0.1035, 0.1774, 0.1897, 0.185, 0.2084, 0.2724, 0.2868)
+plot(times)
+```
+
+A significant result from the test shows that we shouldn't prefer this model. The plot shows that while the effect over time may not be perfectly linear, it's close enough to not be worth complicating the model.
+
+## (i)
+
+The log price (in thousands USD) increases by 0.0001007 for each dollar of average per capita income in 1986. The log price (in thousands USD) falls by 0.01695 for each percentage point that the average per capita income increases in a year. The log price (in thousands USD) increases by 0.03569 for each point in the regulatory environment index (higher amounts of regulation mean higher prices).
